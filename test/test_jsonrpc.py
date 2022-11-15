@@ -13,7 +13,7 @@ class TestJsonRPCMethod_id(unittest.TestCase):
         method = JsonRPCMethod("", "method", 30)
         self.assertTrue(isinstance(method.id(), str))
         self.assertTrue(len(method.id()) > 0)
-        for i in range(100):
+        for _ in range(100):
             self.assertNotEqual(method.id(), method.id())
 
 

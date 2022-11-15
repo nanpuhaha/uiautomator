@@ -25,14 +25,14 @@ class TestMisc(unittest.TestCase):
 
     def test_rect(self):
         import random
-        for i in range(10):
+        for _ in range(10):
             top, left = random.randint(0, 100), random.randint(0, 100)
             bottom, right = random.randint(101, 1024), random.randint(101, 720)
             self.assertEqual(uiautomator.rect(top, left, bottom, right), {"top": top, "left": left, "bottom": bottom, "right": right})
 
     def test_point(self):
         import random
-        for i in range(10):
+        for _ in range(10):
             x, y = random.randint(0, 1024), random.randint(0, 720)
             self.assertEqual(uiautomator.point(x, y), {"x": x, "y": y})
 

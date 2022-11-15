@@ -25,10 +25,8 @@ setup(
     author='Xiaocong He',
     author_email='xiaocong@gmail.com, hongbin.bao@gmail.com',
     url='https://github.com/xiaocong/uiautomator',
-    download_url='https://github.com/xiaocong/uiautomator/tarball/%s' % version,
-    keywords=[
-        'testing', 'android', 'uiautomator', 'uiautomatorpy'
-    ],
+    download_url=f'https://github.com/xiaocong/uiautomator/tarball/{version}',
+    keywords=['testing', 'android', 'uiautomator', 'uiautomatorpy'],
     install_requires=requires,
     tests_require=test_requires,
     test_suite="nose.collector",
@@ -40,7 +38,8 @@ setup(
             'uiautomator/libs/app-uiautomator-test.apk',
             'uiautomator/libs/app-uiautomator.apk',
             'uiautomator/libs/app-uiautomator-test-androidx.apk',
-            'uiautomator/libs/app-uiautomator-androidx.apk']
+            'uiautomator/libs/app-uiautomator-androidx.apk',
+        ]
     },
     include_package_data=True,
     license='MIT',
@@ -55,6 +54,6 @@ setup(
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Topic :: Software Development :: Libraries :: Python Modules',
-        'Topic :: Software Development :: Testing'
-    )
+        'Topic :: Software Development :: Testing',
+    ),
 )

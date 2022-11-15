@@ -3,6 +3,7 @@
 
 """Python wrapper for Android uiautomator tool."""
 
+
 import sys
 import os
 import subprocess
@@ -19,7 +20,7 @@ DEVICE_PORT = int(os.environ.get('UIAUTOMATOR_DEVICE_PORT', '9008'))
 LOCAL_PORT = int(os.environ.get('UIAUTOMATOR_LOCAL_PORT', '9008'))
 
 if 'localhost' not in os.environ.get('no_proxy', ''):
-    os.environ['no_proxy'] = "localhost,%s" % os.environ.get('no_proxy', '')
+    os.environ['no_proxy'] = f"localhost,{os.environ.get('no_proxy', '')}"
 
 try:
     import urllib2
@@ -50,6 +51,8 @@ def param_to_property(*props, **kwprops):
     if props and kwprops:
         raise SyntaxError("Can not set both props and kwprops at the same time.")
 
+
+
     class Wrapper(object):
 
         def __init__(self, func):
@@ -65,16 +68,18 @@ def param_to_property(*props, **kwprops):
             elif attr in props:
                 self.args.append(attr)
                 return self
-            raise AttributeError("%s parameter is duplicated or not allowed!" % attr)
+            raise AttributeError(f"{attr} parameter is duplicated or not allowed!")
 
         def __call__(self, *args, **kwargs):
             if kwprops:
-                kwargs.update(self.kwargs)
+                kwargs |= self.kwargs
                 self.kwargs = {}
                 return self.func(*args, **kwargs)
             else:
                 new_args, self.args = self.args + list(args), []
                 return self.func(*new_args, **kwargs)
+
+
     return Wrapper
 
 
@@ -129,8 +134,9 @@ class JsonRPCMethod(object):
         if "error" in jsonresult and jsonresult["error"]:
             raise JsonRPCError(
                 jsonresult["error"]["code"],
-                "%s: %s" % (jsonresult["error"]["data"]["exceptionTypeName"], jsonresult["error"]["message"])
+                f'{jsonresult["error"]["data"]["exceptionTypeName"]}: {jsonresult["error"]["message"]}',
             )
+
         return jsonresult["result"]
 
     def id(self):
@@ -195,7 +201,7 @@ class Selector(dict):
             super(Selector, self).__setitem__(U(k), U(v))
             super(Selector, self).__setitem__(self.__mask, self[self.__mask] | self.__fields[k][0])
         else:
-            raise ReferenceError("%s is not allowed." % k)
+            raise ReferenceError(f"{k} is not allowed.")
 
     def __delitem__(self, k):
         if k in self.__fields:
@@ -203,8 +209,17 @@ class Selector(dict):
             super(Selector, self).__setitem__(self.__mask, self[self.__mask] & ~self.__fields[k][0])
 
     def clone(self):
-        kwargs = dict((k, self[k]) for k in self
-                      if k not in [self.__mask, self.__childOrSibling, self.__childOrSiblingSelector])
+        kwargs = {
+            k: self[k]
+            for k in self
+            if k
+            not in [
+                self.__mask,
+                self.__childOrSibling,
+                self.__childOrSiblingSelector,
+            ]
+        }
+
         selector = Selector(**kwargs)
         for v in self[self.__childOrSibling]:
             selector[self.__childOrSibling].append(v)
@@ -245,9 +260,9 @@ class Adb(object):
 
     def __init__(self, serial=None, adb_server_host=None, adb_server_port=None):
         self.__adb_cmd = None
-        self.default_serial = serial if serial else os.environ.get("ANDROID_SERIAL", None)
-        self.adb_server_host = str(adb_server_host if adb_server_host else 'localhost')
-        self.adb_server_port = str(adb_server_port if adb_server_port else '5037')
+        self.default_serial = serial or os.environ.get("ANDROID_SERIAL", None)
+        self.adb_server_host = str(adb_server_host or 'localhost')
+        self.adb_server_port = str(adb_server_port or '5037')
         self.adbHostPortOptions = []
         if self.adb_server_host not in ['localhost', '127.0.0.1']:
             self.adbHostPortOptions += ["-H", self.adb_server_host]
@@ -261,7 +276,9 @@ class Adb(object):
                 adb_cmd = os.path.join(os.environ["ANDROID_HOME"], "platform-tools", filename)
                 if not os.path.exists(adb_cmd):
                     raise EnvironmentError(
-                        "Adb not found in $ANDROID_HOME path: %s." % os.environ["ANDROID_HOME"])
+                        f'Adb not found in $ANDROID_HOME path: {os.environ["ANDROID_HOME"]}.'
+                    )
+
             else:
                 import distutils
                 if "spawn" not in dir(distutils):
@@ -276,13 +293,11 @@ class Adb(object):
 
     def cmd(self, *args, **kwargs):
         '''adb command, add -s serial by default. return the subprocess.Popen object.'''
-        serial = self.device_serial()
-        if serial:
-            if " " in serial:  # TODO how to include special chars on command line
-                serial = "'%s'" % serial
-            return self.raw_cmd(*["-s", serial] + list(args))
-        else:
+        if not (serial := self.device_serial()):
             return self.raw_cmd(*args)
+        if " " in serial:  # TODO how to include special chars on command line
+            serial = "'%s'" % serial
+        return self.raw_cmd(*["-s", serial] + list(args))
 
     def raw_cmd(self, *args):
         '''adb command. return the subprocess.Popen object.'''
@@ -293,14 +308,12 @@ class Adb(object):
 
     def device_serial(self):
         if not self.default_serial:
-            devices = self.devices()
-            if devices:
-                if len(devices) is 1:
-                    self.default_serial = list(devices.keys())[0]
-                else:
-                    raise EnvironmentError("Multiple devices attached but default android serial not set.")
-            else:
+            if not (devices := self.devices()):
                 raise EnvironmentError("Device not attached.")
+            if len(devices) is 1:
+                self.default_serial = list(devices.keys())[0]
+            else:
+                raise EnvironmentError("Multiple devices attached but default android serial not set.")
         return self.default_serial
 
     def devices(self):
@@ -327,7 +340,7 @@ class Adb(object):
     def version(self):
         '''adb version'''
         match = re.search(r"(\d+)\.(\d+)\.(\d+)", self.raw_cmd("version").communicate()[0].decode("utf-8"))
-        return [match.group(i) for i in range(4)]
+        return [match[i] for i in range(4)]
 
 
 _init_local_port = LOCAL_PORT - 1
@@ -515,8 +528,13 @@ class AutomatorServer(object):
                     res.close()
                 self.uiautomator_process = None
         try:
-            out = self.adb.cmd("shell", "ps", "-C", "uiautomator").communicate()[0].decode("utf-8").strip().splitlines()
-            if out:
+            if (
+                out := self.adb.cmd("shell", "ps", "-C", "uiautomator")
+                .communicate()[0]
+                .decode("utf-8")
+                .strip()
+                .splitlines()
+            ):
                 index = out[0].split().index("PID")
                 for line in out[1:]:
                     if len(line.split()) > index:
@@ -541,12 +559,11 @@ class AutomatorServer(object):
             try:
                 req = urllib2.Request("%s?scale=%f&quality=%f" % (self.screenshot_uri, scale, quality))
                 result = urllib2.urlopen(req, timeout=30)
-                if filename:
-                    with open(filename, 'wb') as f:
-                        f.write(result.read())
-                        return filename
-                else:
+                if not filename:
                     return result.read()
+                with open(filename, 'wb') as f:
+                    f.write(result.read())
+                    return filename
             except:
                 pass
         return None
@@ -586,7 +603,7 @@ class AutomatorDevice(object):
         elif attr in self.__alias:
             return info[self.__alias[attr]]
         else:
-            raise AttributeError("%s attribute not found!" % attr)
+            raise AttributeError(f"{attr} attribute not found!")
 
     @property
     def info(self):
@@ -607,8 +624,7 @@ class AutomatorDevice(object):
     def swipePoints(self, points, steps=100):
         ppoints = []
         for p in points:
-            ppoints.append(p[0])
-            ppoints.append(p[1])
+            ppoints.extend((p[0], p[1]))
         return self.server.jsonrpc.swipePoints(ppoints, steps)
 
     def drag(self, sx, sy, ex, ey, steps=100):
@@ -628,8 +644,7 @@ class AutomatorDevice(object):
 
     def screenshot(self, filename, scale=1.0, quality=100):
         '''take screenshot.'''
-        result = self.server.screenshot(filename, scale, quality)
-        if result:
+        if result := self.server.screenshot(filename, scale, quality):
             return result
 
         device_file = self.server.jsonrpc.takeScreenshot("screenshot.png",
@@ -818,6 +833,8 @@ class AutomatorDevice(object):
         '''
         devive_self = self
 
+
+
         class _Screen(object):
             def on(self):
                 return devive_self.wakeup()
@@ -831,7 +848,7 @@ class AutomatorDevice(object):
                 elif action == "off":
                     return self.off()
                 else:
-                    raise AttributeError("Invalid parameter: %s" % action)
+                    raise AttributeError(f"Invalid parameter: {action}")
 
             def __eq__(self, value):
                 info = devive_self.info
@@ -846,6 +863,7 @@ class AutomatorDevice(object):
             def __ne__(self, value):
                 return not self.__eq__(value)
 
+
         return _Screen()
 
     @property
@@ -858,14 +876,15 @@ class AutomatorDevice(object):
         '''
         @param_to_property(action=["idle", "update"])
         def _wait(action, timeout=1000, package_name=None):
-            if timeout / 1000 + 5 > int(os.environ.get("JSONRPC_TIMEOUT", 90)):
-                http_timeout = timeout / 1000 + 5
-            else:
-                http_timeout = int(os.environ.get("JSONRPC_TIMEOUT", 90))
+            http_timeout = max(
+                timeout / 1000 + 5, int(os.environ.get("JSONRPC_TIMEOUT", 90))
+            )
+
             if action == "idle":
                 return self.server.jsonrpc_wrap(timeout=http_timeout).waitForIdle(timeout)
             elif action == "update":
                 return self.server.jsonrpc_wrap(timeout=http_timeout).waitForWindowUpdate(package_name, timeout)
+
         return _wait
 
     def exists(self, **kwargs):
@@ -900,7 +919,7 @@ class AutomatorDeviceUiObject(object):
         elif attr in self.__alias:
             return info[self.__alias[attr]]
         else:
-            raise AttributeError("%s attribute not found!" % attr)
+            raise AttributeError(f"{attr} attribute not found!")
 
     @property
     def info(self):
@@ -951,22 +970,24 @@ class AutomatorDeviceUiObject(object):
         def _long_click(corner=None):
             info = self.info
             if info["longClickable"]:
-                if corner:
-                    return self.jsonrpc.longClick(self.selector, corner)
-                else:
-                    return self.jsonrpc.longClick(self.selector)
+                return (
+                    self.jsonrpc.longClick(self.selector, corner)
+                    if corner
+                    else self.jsonrpc.longClick(self.selector)
+                )
+
+            bounds = info.get("visibleBounds") or info.get("bounds")
+            if corner in ["tl", "topleft"]:
+                x = (5 * bounds["left"] + bounds["right"]) / 6
+                y = (5 * bounds["top"] + bounds["bottom"]) / 6
+            elif corner in ["br", "bottomright"]:
+                x = (bounds["left"] + 5 * bounds["right"]) / 6
+                y = (bounds["top"] + 5 * bounds["bottom"]) / 6
             else:
-                bounds = info.get("visibleBounds") or info.get("bounds")
-                if corner in ["tl", "topleft"]:
-                    x = (5 * bounds["left"] + bounds["right"]) / 6
-                    y = (5 * bounds["top"] + bounds["bottom"]) / 6
-                elif corner in ["br", "bottomright"]:
-                    x = (bounds["left"] + 5 * bounds["right"]) / 6
-                    y = (bounds["top"] + 5 * bounds["bottom"]) / 6
-                else:
-                    x = (bounds["left"] + bounds["right"]) / 2
-                    y = (bounds["top"] + bounds["bottom"]) / 2
-                return self.device.long_click(x, y)
+                x = (bounds["left"] + bounds["right"]) / 2
+                y = (bounds["top"] + bounds["bottom"]) / 2
+            return self.device.long_click(x, y)
+
         return _long_click
 
     @property
@@ -996,8 +1017,9 @@ class AutomatorDeviceUiObject(object):
             ctp = lambda pt: point(*pt) if type(pt) == tuple else pt  # convert tuple to point
             s1, s2, e1, e2 = ctp(start1), ctp(start2), ctp(end1), ctp(end2)
             return self.jsonrpc.gesture(self.selector, s1, s2, e1, e2, steps)
+
         obj = type("Gesture", (object,), {"to": to})()
-        return obj if len(args) == 0 else to(None, *args, **kwargs)
+        return to(None, *args, **kwargs) if args else obj
 
     def gestureM(self, start1, start2, start3, *args, **kwargs):
         '''
@@ -1010,8 +1032,9 @@ class AutomatorDeviceUiObject(object):
             ctp = lambda pt: point(*pt) if type(pt) == tuple else pt  # convert tuple to point
             s1, s2, s3, e1, e2, e3 = ctp(start1), ctp(start2), ctp(start3), ctp(end1), ctp(end2), ctp(end3)
             return self.jsonrpc.gesture(self.selector, s1, s2, s3, e1, e2, e3, steps)
+
         obj = type("Gesture", (object,), {"to": to})()
-        return obj if len(args) == 0 else to(None, *args, **kwargs)
+        return to(None, *args, **kwargs) if args else obj
 
     @property
     def pinch(self):
@@ -1059,14 +1082,15 @@ class AutomatorDeviceUiObject(object):
         '''
         @param_to_property(action=["exists", "gone"])
         def _wait(action, timeout=3000):
-            if timeout / 1000 + 5 > int(os.environ.get("JSONRPC_TIMEOUT", 90)):
-                http_timeout = timeout / 1000 + 5
-            else:
-                http_timeout = int(os.environ.get("JSONRPC_TIMEOUT", 90))
+            http_timeout = max(
+                timeout / 1000 + 5, int(os.environ.get("JSONRPC_TIMEOUT", 90))
+            )
+
             method = self.device.server.jsonrpc_wrap(
                 timeout=http_timeout
             ).waitUntilGone if action == "gone" else self.device.server.jsonrpc_wrap(timeout=http_timeout).waitForExists
             return method(self.selector, timeout)
+
         return _wait
 
 

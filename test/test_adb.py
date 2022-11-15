@@ -98,7 +98,13 @@ class TestAdb(unittest.TestCase):
         with patch("subprocess.Popen") as Popen:
             os.name = "posix"
             adb.raw_cmd(*args)
-            Popen.assert_called_once_with(["%s %s" % (adb.adb(), " ".join(args))], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            Popen.assert_called_once_with(
+                [f'{adb.adb()} {" ".join(args)}'],
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
         with patch("subprocess.Popen") as Popen:
             os.name = "nt"
             adb.raw_cmd(*args)
@@ -111,7 +117,7 @@ class TestAdb(unittest.TestCase):
         adb.raw_cmd = MagicMock()
         args = ["a", "b", "c"]
         adb.cmd(*args)
-        adb.raw_cmd.assert_called_once_with("-s", "%s" % adb.device_serial(), *args)
+        adb.raw_cmd.assert_called_once_with("-s", f"{adb.device_serial()}", *args)
 
         adb.device_serial.return_value = "ANDROID SERIAL"
         adb.raw_cmd = MagicMock()

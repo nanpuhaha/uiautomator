@@ -187,6 +187,6 @@ class TestJsonRPCError(unittest.TestCase):
     def testJsonRPCError(self):
         e = JsonRPCError(200, "error")
         self.assertEqual(200, e.code)
-        self.assertTrue(len(str(e)) > 0)
+        self.assertTrue(str(e) != "")
         e = JsonRPCError("200", "error")
         self.assertEqual(200, e.code)
